@@ -1,0 +1,28 @@
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js
+Frontend/node_modules/
+Frontend/dist/
+Frontend/.env*
+Frontend/npm-debug.log*
+Frontend/yarn-debug.log*
+Frontend/yarn-error.log*
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.pytest_cache/
+Server/__pycache__/
+
+# OS files
+.DS_Store
+Thumbs.db
