@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
-from DB.Engine import create_db_and_tables, engine
+from DB.Engine import create_db_and_tables
+from DB.database import engine
 from DB.schemas.Student import Student
 from config import settings
 from utils.security import verify_password, create_access_token
@@ -17,6 +18,8 @@ async def lifespan(app: FastAPI):
     # Run when the server shuts down
     pass
 
+from DB.schemas import get_db
+
 app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
@@ -28,15 +31,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Dependency to get a DB session
-def get_session():
-    with Session(engine) as session:
-        yield session
-
 @app.post("/token")
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_db)
 ):
     # Find student by email (using username field from form)
     statement = select(Student).where(Student.email == form_data.username)
