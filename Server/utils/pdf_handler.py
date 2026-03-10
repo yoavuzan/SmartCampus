@@ -21,42 +21,49 @@ PDF_PATH = os.path.join(BASE_DIR, "PDF_Files", "regulations.pdf")
 # Initialize Embeddings
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
+
 def format_docs(docs):
     """פורמט למסמכים שנשלפו לטקסט רציף."""
     return "\n\n".join(doc.page_content for doc in docs)
 
+
 def initialize_rag():
     """Load PDF, split text, and create/load vector store."""
     if not os.path.exists(PDF_PATH):
-        print(f"Warning: PDF file not found at {PDF_PATH}. Please place the regulations PDF there.")
+        print(
+            f"Warning: PDF file not found at {PDF_PATH}. Please place the regulations PDF there."
+        )
         return None
 
     # Load and split
     loader = PyPDFLoader(PDF_PATH)
     documents = loader.load()
-    
+
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = text_splitter.split_documents(documents)
 
     # Create or load vector store
     vector_store = Chroma.from_documents(
-        documents=chunks,
-        embedding=embeddings,
-        persist_directory=DB_DIR
+        documents=chunks, embedding=embeddings, persist_directory=DB_DIR
     )
     return vector_store
 
+
 # Global variable to hold the vector store
 _vector_store = None
+
 
 def get_vector_store():
     global _vector_store
     if _vector_store is None:
         if os.path.exists(DB_DIR):
-            _vector_store = Chroma(persist_directory=DB_DIR, embedding_function=embeddings)
+            _vector_store = Chroma(
+                persist_directory=DB_DIR, embedding_function=embeddings
+            )
         else:
             _vector_store = initialize_rag()
     return _vector_store
+
 
 def get_rag_chain():
     """Returns the LCEL RAG chain for streaming or invocation."""
@@ -65,18 +72,19 @@ def get_rag_chain():
         return None
 
     # Initialize LLM
-    llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0.3)
 
+    llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0)
     # Hebrew Prompt Template
     template = """
-    השתמש במידע הבא כדי לענות על השאלה בסוף. 
-    אם אינך יודע את התשובה, פשוט אמור שאינך יודע, אל תנסה להמציא תשובה.
-    ענה תמיד בעברית בלבד.
+    Use the following information to answer the question at the end. 
+    If you don't know the answer, just say that you don't know; do not try to make up an answer.
+    Always answer in Hebrew only.
 
+    CRITICAL: Mention the section number (e.g., "לפי סעיף X").
     {context}
 
-    שאלה: {question}
-    תשובה מפורטת בעברית:"""
+    Question: {question}
+    Detailed answer in Hebrew:"""
 
     QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
 
@@ -88,6 +96,7 @@ def get_rag_chain():
     )
 
     return rag_chain
+
 
 def ask_regulations(question: str):
     """Query the RAG pipeline in Hebrew using the modern LCEL chain (Blocking)."""
