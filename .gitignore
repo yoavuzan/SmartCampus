@@ -20,6 +20,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .env
+Server/.env*
 .pytest_cache/
 Server/__pycache__/
 

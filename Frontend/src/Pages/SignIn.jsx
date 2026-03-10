@@ -1,13 +1,48 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Logging in with:', { email, password });
+    setError('');
+    
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', email); // FastAPI OAuth2 uses 'username' field
+      formData.append('password', password);
+
+      const response = await fetch('http://127.0.0.1:8000/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('אימייל או סיסמה שגויים');
+      }
+
+      const data = await response.json();
+      
+      // Save token in cookies (expires in 24 hours)
+      const expirationDate = new Date();
+      expirationDate.setTime(expirationDate.getTime() + (24 * 60 * 60 * 1000));
+      document.cookie = `access_token=${data.access_token}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Strict`;
+
+      console.log('Login successful');
+      // Redirect to ChatBot page
+      navigate('/chatbot');
+      
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   return (
@@ -23,6 +58,8 @@ const SignIn = () => {
             ברוכים הבאים! אנא הזינו את פרטי ההתחברות שלכם.
           </p>
         </div>
+
+        {error && <div className="error-message" style={{color: 'red', textAlign: 'center', marginBottom: '10px'}}>{error}</div>}
 
         {/* Google Sign In */}
         <div className="mt-8">
