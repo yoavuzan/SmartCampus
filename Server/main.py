@@ -9,6 +9,11 @@ from DB.database import engine
 from DB.schemas.Student import Student
 from config import settings
 from utils.security import verify_password, create_access_token
+<<<<<<< Updated upstream
+=======
+from utils.pdf_handler import ask_regulations, get_rag_chain
+from utils.orchestrator import orchestrator
+>>>>>>> Stashed changes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -62,6 +67,35 @@ async def login(
         "token_type": "bearer"
     }
 
+<<<<<<< Updated upstream
+=======
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_text()
+            
+            # Use the orchestrator to get a combined response from SQL and PDF
+            async for chunk in orchestrator(data):
+                await websocket.send_text(chunk)
+            
+            # Send an EOF marker if needed by the frontend to differentiate messages
+            await websocket.send_text("__END__")
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+        try:
+            await websocket.send_text("אירעה שגיאה בעיבוד הבקשה שלך.")
+        except:
+            pass
+        await websocket.close()
+
+>>>>>>> Stashed changes
 @app.get("/")
 def root():
     return {"message": "SmartCampus API is Running!"}
@@ -69,4 +103,3 @@ def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
