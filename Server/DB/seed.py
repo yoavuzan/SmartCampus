@@ -13,7 +13,7 @@ try:
     from .schemas.Exam import Exam
     from .schemas.Course import Course
     from .schemas.StudentCourseLink import StudentCourseLink
-    from .schemas import get_db
+    from .schemas import get_db_context
 except (ImportError, ValueError):
     # If run directly as a script
     from database import engine
@@ -23,7 +23,7 @@ except (ImportError, ValueError):
     from schemas.Exam import Exam
     from schemas.Course import Course
     from schemas.StudentCourseLink import StudentCourseLink
-    from schemas import get_db
+    from schemas import get_db_context
 
 # Add the Server directory to sys.path to import from utils if run directly
 if __name__ == "__main__":
@@ -32,7 +32,7 @@ if __name__ == "__main__":
 from utils.security import get_password_hash
 
 def seed_db():    
-    with get_db() as session:
+    with get_db_context() as session:
         # 1. Seed Student (if not exists)
         if not session.exec(select(Student).where(Student.email == "test@student.com")).first():
             print("מוסיף סטודנט לדוגמה...")

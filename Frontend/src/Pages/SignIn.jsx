@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,7 +37,8 @@ const SignIn = () => {
       document.cookie = `access_token=${data.access_token}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Strict`;
 
       console.log('Login successful');
-      // You can redirect here, e.g., window.location.href = '/dashboard';
+      // Redirect to ChatBot page
+      navigate('/chatbot');
       
     } catch (err) {
       setError(err.message);
