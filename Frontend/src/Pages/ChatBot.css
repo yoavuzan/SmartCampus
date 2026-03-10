@@ -83,3 +83,28 @@
 .chatbot-input button:hover {
   background-color: #357abd;
 }
+
+.chatbot-input button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.status-online {
+  color: #4cd964;
+  font-size: 0.8rem;
+  margin-right: 5px;
+}
+
+.status-offline {
+  color: #ff3b30;
+  font-size: 0.8rem;
+  margin-right: 5px;
+}
+
+.connection-error {
+  text-align: center;
+  color: #888;
+  font-size: 0.8rem;
+  margin-top: 10px;
+  font-style: italic;
+}

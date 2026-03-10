@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from contextlib import asynccontextmanager
@@ -9,6 +9,7 @@ from DB.database import engine
 from DB.schemas.Student import Student
 from config import settings
 from utils.security import verify_password, create_access_token
+from utils.pdf_handler import ask_regulations, get_rag_chain
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,6 +62,37 @@ async def login(
         "access_token": access_token,
         "token_type": "bearer"
     }
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    chain = get_rag_chain()
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_text()
+            
+            if chain is None:
+                await websocket.send_text("שגיאה: לא ניתן לאתחל את מערכת ה-AI.")
+                continue
+
+            # Stream response back to client chunk by chunk
+            async for chunk in chain.astream(data):
+                await websocket.send_text(chunk)
+            
+            # Send an EOF marker if needed by the frontend to differentiate messages
+            await websocket.send_text("__END__")
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+        try:
+            await websocket.send_text("אירעה שגיאה בעיבוד הבקשה שלך.")
+        except:
+            pass
+        await websocket.close()
 
 @app.get("/")
 def root():
