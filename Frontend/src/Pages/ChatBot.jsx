@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ChatBot.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'localhost:8000';
+
 const ChatBot = () => {
   const [chatHistory, setChatHistory] = useState([
     { text: "שלום! איך אני יכול לעזור לך היום?", isUser: false }
@@ -13,8 +15,10 @@ const ChatBot = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('Connecting to WebSocket at ws://127.0.0.1:8000/ws');
-    const socket = new WebSocket('ws://127.0.0.1:8000/ws');
+    // Construct WebSocket URL
+    const wsUrl = `ws://${API_URL}/ws`;
+    console.log(`Connecting to WebSocket at ${wsUrl}`);
+    const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -118,7 +122,7 @@ const ChatBot = () => {
           </div>
         ))}
         {isTyping && <div className="typing-indicator">כותב...</div>}
-        {!isConnected && <div className="connection-error">מתחבר לשרת... (127.0.0.1:8000)</div>}
+        {!isConnected && <div className="connection-error">מתחבר לשרת... ({API_URL})</div>}
       </div>
       <form className="chatbot-input" onSubmit={handleSend}>
         <input 

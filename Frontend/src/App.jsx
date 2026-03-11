@@ -5,12 +5,15 @@ import './App.css';
 
 // Function to check if the user is authenticated (has access_token cookie)
 const isAuthenticated = () => {
-  return document.cookie.split('; ').some(row => row.startsWith('access_token='));
+  const isAuth = document.cookie.split(';').some(row => row.trim().startsWith('access_token='));
+  console.log('Authentication check:', isAuth ? 'Logged In' : 'Not Logged In');
+  return isAuth;
 };
 
 // ProtectedRoute component to prevent access to /chatbot without a token
 const ProtectedRoute = ({ children }) => {
   if (!isAuthenticated()) {
+    console.warn('Access denied to /chatbot: Redirecting to login...');
     return <Navigate to="/" replace />;
   }
   return children;

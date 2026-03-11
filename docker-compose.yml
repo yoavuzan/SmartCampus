@@ -1,0 +1,22 @@
+services:
+  server:
+    build:
+      context: ./Server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Server/database.db:/app/database.db
+      - ./Server/chroma_db:/app/chroma_db
+      - ./Server/PDF_Files:/app/PDF_Files
+    env_file:
+      - ./Server/.env
+    restart: always
+
+  frontend:
+    build:
+      context: ./Frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: always

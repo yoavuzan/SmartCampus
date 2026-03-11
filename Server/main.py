@@ -22,6 +22,7 @@ from utils.orchestrator import orchestrator
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run when the server starts
+    print("Starting up: Creating database and tables...")
     create_db_and_tables()
     yield
     # Run when the server shuts down
@@ -35,8 +36,8 @@ app = FastAPI(lifespan=lifespan)
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False, # Changed to false to allow "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -47,11 +48,13 @@ async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: Session = Depends(get_db),
 ):
+    print(f"Login attempt for user: {form_data.username}")
     # Find student by email (using username field from form)
     statement = select(Student).where(Student.email == form_data.username)
     student = session.exec(statement).first()
 
     if not student:
+        print(f"Login failed: User {form_data.username} not found")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -60,12 +63,14 @@ async def login(
 
     # Verify password using the security utility
     if not verify_password(form_data.password, student.hashed_password):
+        print(f"Login failed: Incorrect password for {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    print(f"Login successful for {form_data.username}")
     # Create a real JWT access token
     access_token = create_access_token(data={"sub": student.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -73,12 +78,16 @@ async def login(
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    print("WebSocket attempt: Waiting for accept...")
     await websocket.accept()
+    print("WebSocket connection accepted")
 
     try:
         while True:
             # Receive message from client
+            print("WebSocket: Waiting for message...")
             data = await websocket.receive_text()
+            print(f"WebSocket received: {data}")
 
             # Use the orchestrator to get a combined response from SQL and PDF
             async for chunk in orchestrator(data):
@@ -86,9 +95,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # Send an EOF marker if needed by the frontend to differentiate messages
             await websocket.send_text("__END__")
+            print("WebSocket: Message processing complete")
 
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print("WebSocket: Client disconnected")
     except Exception as e:
         print(f"WebSocket Error: {e}")
         try:
