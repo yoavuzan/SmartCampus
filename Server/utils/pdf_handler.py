@@ -23,7 +23,6 @@ embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
 
 def format_docs(docs):
-    """פורמט למסמכים שנשלפו לטקסט רציף."""
     return "\n\n".join(doc.page_content for doc in docs)
 
 

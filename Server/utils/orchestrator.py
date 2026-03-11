@@ -11,19 +11,19 @@ from .pdf_handler import get_rag_chain
 from DB.database import sqlite_url
 
 # Model Configuration
-# Using gemini-1.5-flash for stability and better rate limits
-llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+# Gemini 2.0 Flash is recommended for its speed and logic capabilities
+llm = ChatGoogleGenerativeAI(model="gemini-3-flash-preview", temperature=0)
 
 # 1. Routing Chain (Analysis)
 router_prompt = ChatPromptTemplate.from_template("""
-נתח את השאלה של המשתמש וקבע אילו מקורות מידע דרושים כדי לענות עליה.
-המקורות הזמינים:
-- SQL: מידע אישי על הסטודנט, ציונים, קורסים, מרצים, כיתות ומבחנים.
-- PDF: תקנון האקדמי, חוקים ונהלים של האוניברסיטה.
+Analyze the user's question and determine which data sources are needed to answer it.
+Available sources:
+- SQL: Personal student information, grades, courses, lecturers, classrooms, and exams.
+- PDF: Academic regulations, university laws, and procedures.
 
-ענה בפורמט JSON בלבד עם המפתחות "sql" ו-"pdf" וערכים בוליאניים (true/false).
+Answer ONLY in JSON format with the keys "sql" and "pdf" and boolean values (true/false).
 
-שאלה: {question}
+Question: {question}
 """)
 
 router_chain = router_prompt | llm | JsonOutputParser()
@@ -32,20 +32,22 @@ router_chain = router_prompt | llm | JsonOutputParser()
 db = SQLDatabase.from_uri(sqlite_url)
 
 sql_gen_prompt = ChatPromptTemplate.from_template("""
-בהתבסס על סכימת הנתונים הבאה, כתוב שאילתת SQLite שתענה על שאלת המשתמש. 
-כתוב רק את השאילתה עצמה, ללא גרשיים או מילות הסבר.
+Based on the following database schema, write a SQLite query to answer the user's question.
+Output ONLY the raw SQL query without any backticks, markdown formatting, or explanations.
 
-סכימת נתונים:
+Database Schema:
 {schema}
 
-שאלה: {question}
-שאילתת SQL:""")
+Question: {question}
+SQL Query:""")
 
 def get_schema(_):
     return db.get_table_info()
 
 def run_query(query):
-    return db.run(query)
+    # Removing potential formatting noise if the LLM adds it
+    clean_query = query.replace("```sql", "").replace("```", "").strip()
+    return db.run(clean_query)
 
 sql_chain = (
     RunnablePassthrough.assign(schema=get_schema)
@@ -60,51 +62,53 @@ pdf_chain = get_rag_chain()
 
 # 4. Final Answer Chain
 final_prompt = ChatPromptTemplate.from_template("""
-אתה עוזר אקדמי אינטליגנטי במערכת SmartCampus. 
-השתמש במידע הבא כדי לענות על שאלת המשתמש בצורה מנומסת ומקצועית בעברית.
+You are an intelligent academic assistant for the SmartCampus system.
+Use the provided context information to answer the user's question professionally and politely in Hebrew.
 
-מידע מהמערכת (SQL):
+System Information (SQL Context):
 {sql_context}
 
-מידע מהתקנון (PDF):
+Regulations Information (PDF Context):
 {pdf_context}
 
-שאלה: {question}
+User Question: {question}
 
-הוראות:
-- אם אין מידע רלוונטי באף אחד מהמקורות, ענה תשובה כללית בנימוס.
-- השתמש בבולד (**) להדגשת דברים חשובים.
-- ענה בעברית בלבד.
+Instructions:
+- If no relevant information is found in either source, provide a polite general response in Hebrew.
+- Use bold (**) to emphasize important details like dates, grades, or section numbers.
+- Your entire response MUST be in Hebrew only.
+- If regulations are used, mention the section number as provided in the context.
 """)
 
 async def orchestrator(question: str) -> AsyncGenerator[str, None]:
+    # Quick response for greetings to save tokens and time
     if len(question) < 4 or any(word in question for word in ["היי", "שלום", "בוקר טוב"]):
         async for chunk in llm.astream(f"ענה בנימוס ובקצרה בעברית לסטודנט: {question}"):
             yield chunk.content
         return
+
     # Phase 1: Analyze Route
     try:
         route = await router_chain.ainvoke({"question": question})
     except Exception as e:
         print(f"Routing Error: {e}")
-        route = {"sql": True, "pdf": True} # Fallback to both
+        route = {"sql": True, "pdf": True} # Fallback to both sources
     
-    sql_context = "לא נדרש מידע מהמערכת."
-    pdf_context = "לא נדרש מידע מהתקנון."
+    sql_context = "No system data retrieved."
+    pdf_context = "No regulation data retrieved."
     
     # Phase 2: Fetch Data
     if route.get("sql"):
         try:
             sql_context = sql_chain.invoke({"question": question})
         except Exception as e:
-            sql_context = f"שגיאה בשליפת נתונים מה-SQL: {e}"
+            sql_context = f"SQL Retrieval Error: {e}"
             
     if route.get("pdf"):
         try:
-            # pdf_chain (from pdf_handler) is an LCEL chain
             pdf_context = pdf_chain.invoke(question)
         except Exception as e:
-            pdf_context = f"שגיאה בשליפת נתונים מהתקנון: {e}"
+            pdf_context = f"PDF Retrieval Error: {e}"
 
     # Phase 3: Final Streamed Answer
     inputs = {

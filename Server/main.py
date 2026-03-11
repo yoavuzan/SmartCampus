@@ -1,15 +1,23 @@
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    status,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from contextlib import asynccontextmanager
 from sqlmodel import Session, select
 from DB.Engine import create_db_and_tables
-from DB.database import engine
 from DB.schemas.Student import Student
-from config import settings
+
 from utils.security import verify_password, create_access_token
-from utils.pdf_handler import ask_regulations, get_rag_chain
+
+from utils.orchestrator import orchestrator
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +26,7 @@ async def lifespan(app: FastAPI):
     yield
     # Run when the server shuts down
     pass
+
 
 from DB.schemas import get_db
 
@@ -32,10 +41,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.post("/token")
 async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    session: Session = Depends(get_db)
+    session: Session = Depends(get_db),
 ):
     # Find student by email (using username field from form)
     statement = select(Student).where(Student.email == form_data.username)
@@ -58,29 +68,22 @@ async def login(
 
     # Create a real JWT access token
     access_token = create_access_token(data={"sub": student.email})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    chain = get_rag_chain()
-    
+
     try:
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            
-            if chain is None:
-                await websocket.send_text("שגיאה: לא ניתן לאתחל את מערכת ה-AI.")
-                continue
 
-            # Stream response back to client chunk by chunk
-            async for chunk in chain.astream(data):
+            # Use the orchestrator to get a combined response from SQL and PDF
+            async for chunk in orchestrator(data):
                 await websocket.send_text(chunk)
-            
+
             # Send an EOF marker if needed by the frontend to differentiate messages
             await websocket.send_text("__END__")
 
@@ -94,11 +97,13 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
         await websocket.close()
 
+
 @app.get("/")
 def root():
     return {"message": "SmartCampus API is Running!"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
