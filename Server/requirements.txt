@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlmodel
+python-dotenv
+python-multipart
+bcrypt
+pyjwt
+langchain
+langchain-google-genai
+langchain-community
+langchain-core
+langchain-chroma
+pypdf
+google-generativeai
+pytest
+httpx
+pytest-asyncio
