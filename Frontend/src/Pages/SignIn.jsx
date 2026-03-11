@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './SignIn.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'localhost:8000';
+
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +19,7 @@ const SignIn = () => {
       formData.append('username', email); // FastAPI OAuth2 uses 'username' field
       formData.append('password', password);
 
-      const response = await fetch('http://127.0.0.1:8000/token', {
+      const response = await fetch(`http://${API_URL}/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -34,7 +36,7 @@ const SignIn = () => {
       // Save token in cookies (expires in 24 hours)
       const expirationDate = new Date();
       expirationDate.setTime(expirationDate.getTime() + (24 * 60 * 60 * 1000));
-      document.cookie = `access_token=${data.access_token}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Strict`;
+      document.cookie = `access_token=${data.access_token}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Lax`;
 
       console.log('Login successful');
       // Redirect to ChatBot page
